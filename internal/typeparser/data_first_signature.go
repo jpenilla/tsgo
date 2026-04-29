@@ -31,15 +31,22 @@ func (tp *TypeParser) DataFirstOrLastCall(node *ast.Node) *ParsedDataFirstOrLast
 		}
 	}
 
+	// Bail out early when in any Effect context and the call involves `this` anywhere,
+	// or when any argument is an arrow function (which captures `this` from the
+	// enclosing generator scope and can trigger type resolution cascades that lose
+	// the `this` context from { self: this }, producing false-positive TS2683).
+	// This must come before any checker method calls (GetResolvedSignature, etc.)
+	// because those are what trigger the cascading type resolution.
+	if tp.GetEffectContextFlags(node) != 0 && (callHasNonBareThisArgument(call.Arguments.Nodes) || containsThisKeyword(call.Expression) || callHasArrowFunctionArgument(call.Arguments.Nodes)) {
+		return nil
+	}
+
 	c := tp.checker
 	resolved := c.GetResolvedSignature(node)
 	if resolved == nil || resolved.Declaration() == nil {
 		return nil
 	}
 	if len(resolved.Parameters()) != len(call.Arguments.Nodes) {
-		return nil
-	}
-	if tp.GetEffectContextFlags(node)&EffectContextFlagCanYieldEffect != 0 && callHasNonBareThisArgument(call.Arguments.Nodes) {
 		return nil
 	}
 
@@ -115,6 +122,15 @@ func callHasNonBareThisArgument(args []*ast.Node) bool {
 			continue
 		}
 		if containsThisKeyword(arg) {
+			return true
+		}
+	}
+	return false
+}
+
+func callHasArrowFunctionArgument(args []*ast.Node) bool {
+	for _, arg := range args {
+		if arg != nil && arg.Kind == ast.KindArrowFunction {
 			return true
 		}
 	}
