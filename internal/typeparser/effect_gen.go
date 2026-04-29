@@ -59,7 +59,6 @@ func (tp *TypeParser) EffectGenCall(node *ast.Node) *EffectGenCallResult {
 			return nil
 		}
 		genFn := bodyArg.AsFunctionExpression()
-		trailingStartIndex := len(call.Arguments.Nodes) - len(pipeArgs)
 
 		expr := call.Expression
 		if expr == nil || expr.Kind != ast.KindPropertyAccessExpression {
@@ -81,7 +80,10 @@ func (tp *TypeParser) EffectGenCall(node *ast.Node) *EffectGenCallResult {
 			OptionsNode:        optionsNode,
 			GeneratorFunction:  genFn,
 			Body:               genFn.Body,
-			FunctionReturnType: tp.buildEffectGenFunctionReturnType(call, trailingStartIndex, pipeArgs),
+			// FunctionReturnType is intentionally not computed here. Doing so would
+		// call GetTypeAtLocation which triggers type resolution that can produce
+		// false-positive TS2683 for `this` in nested Effect.gen({ self: this }).
+		FunctionReturnType: nil,
 			PipeArguments:      pipeArgs,
 		}
 	})

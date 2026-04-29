@@ -31,14 +31,18 @@ func (tp *TypeParser) DataFirstOrLastCall(node *ast.Node) *ParsedDataFirstOrLast
 		}
 	}
 
-	// Bail out early when in any Effect context and the call involves `this` anywhere,
-	// or when any argument is an arrow function (which captures `this` from the
-	// enclosing generator scope and can trigger type resolution cascades that lose
-	// the `this` context from { self: this }, producing false-positive TS2683).
-	// This must come before any checker method calls (GetResolvedSignature, etc.)
-	// because those are what trigger the cascading type resolution.
-	if tp.GetEffectContextFlags(node) != 0 && (callHasNonBareThisArgument(call.Arguments.Nodes) || containsThisKeyword(call.Expression) || callHasArrowFunctionArgument(call.Arguments.Nodes)) {
-		return nil
+	// Bail out early when in any Effect context and any of the following
+	// conditions are met. This must come before any checker method calls
+	// (GetResolvedSignature, etc.) because those can trigger type resolution
+	// that loses the `this` context from { self: this } and produces
+	// false-positive TS2683.
+	if tp.GetEffectContextFlags(node) != 0 {
+		if callHasNonBareThisArgument(call.Arguments.Nodes) ||
+			containsThisKeyword(call.Expression) ||
+			callHasArrowFunctionArgument(call.Arguments.Nodes) ||
+			callHasGenericCallee(tp, call) {
+			return nil
+		}
 	}
 
 	c := tp.checker
@@ -131,6 +135,26 @@ func callHasNonBareThisArgument(args []*ast.Node) bool {
 func callHasArrowFunctionArgument(args []*ast.Node) bool {
 	for _, arg := range args {
 		if arg != nil && arg.Kind == ast.KindArrowFunction {
+			return true
+		}
+	}
+	return false
+}
+
+func callHasGenericCallee(tp *TypeParser, call *ast.CallExpression) bool {
+	if call == nil || call.Expression == nil {
+		return false
+	}
+	sym := tp.ReferenceSymbolAtNode(call.Expression)
+	if sym == nil {
+		return false
+	}
+	for _, decl := range sym.Declarations {
+		if decl == nil {
+			continue
+		}
+		typeParams := GetFunctionLikeTypeParameters(decl)
+		if typeParams != nil && len(typeParams.Nodes) > 0 {
 			return true
 		}
 	}

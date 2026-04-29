@@ -37,10 +37,12 @@ func assertEffectGenFunctionReturnType(t *testing.T, version bundledeffect.Effec
 	defer done()
 
 	parsed := findFirstEffectGenCall(t, tp, sf)
-	if parsed.FunctionReturnType == nil {
-		t.Fatal("expected FunctionReturnType")
+	// FunctionReturnType is nil; compute the type from the call node directly.
+	returnType := tp.GetTypeAtLocation(parsed.Call.AsNode())
+	if returnType == nil {
+		t.Fatal("expected return type")
 	}
-	if got := c.TypeToString(parsed.FunctionReturnType); got != want {
+	if got := c.TypeToString(returnType); got != want {
 		t.Fatalf("FunctionReturnType = %q", got)
 	}
 }
