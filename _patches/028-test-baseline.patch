@@ -1,0 +1,22 @@
+diff --git a/testdata/baselines/reference/fourslash/syntaxandSemanticDiagnostics/issue173_Generic2ArgCallWithLiteralsInsideNestedEffectGen.baseline b/testdata/baselines/reference/fourslash/syntaxandSemanticDiagnostics/issue173_Generic2ArgCallWithLiteralsInsideNestedEffectGen.baseline
+new file mode 100644
+index 000000000..f8928f765
+--- /dev/null
++++ b/testdata/baselines/reference/fourslash/syntaxandSemanticDiagnostics/issue173_Generic2ArgCallWithLiteralsInsideNestedEffectGen.baseline
+@@ -0,0 +1,16 @@
++// === Syntax and Semantic Diagnostics ===
++
++==== /repro.ts (0 errors) ====
++    import { Effect } from "effect"
++
++    function combine<T>(a: T, b: T): T { return a }
++
++    class Repro {
++      run(): Effect.Effect<number> {
++        return Effect.gen({ self: this }, function* () {
++          return yield* Effect.gen({ self: this }, function* () {
++            return combine(1, 2)
++          })
++        })
++      }
++    }

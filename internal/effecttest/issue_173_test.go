@@ -282,6 +282,48 @@ class Repro {
 	f.VerifyNonSuggestionDiagnostics(t, nil)
 }
 
+// Generic 2-arg call with literals in return inside nested Effect.gen({ self: this }).
+// Triggers TS2683 via EffectGenCall -> GetTypeAtLocation (not DataFirstOrLastCall).
+// Uses baseline verification because the fourslash LSP path otherwise doesn't
+// surface this TS2683.
+func TestIssue173_Generic2ArgCallWithLiteralsInsideNestedEffectGen(t *testing.T) {
+	t.Parallel()
+
+	const content = `// @Filename: /tsconfig.json
+{
+  "compilerOptions": {
+    "strict": true,
+    "target": "ESNext",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "plugins": [
+      {
+        "name": "@effect/language-service"
+      }
+    ]
+  }
+}
+// @Filename: /repro.ts
+import { Effect } from "effect"
+
+function combine<T>(a: T, b: T): T { return a }
+
+class Repro {
+  run(): Effect.Effect<number> {
+    return Effect.gen({ self: this }, function* () {
+      return yield* Effect.gen({ self: this }, function* () {
+        return combine(1, 2)
+      })
+    })
+  }
+}`
+
+	f, done := fourslash.NewFourslash(t, nil /*capabilities*/, content)
+	defer done()
+
+	f.VerifyBaselineNonSuggestionDiagnostics(t)
+}
+
 // Generic 3-arg function with arrow callback inside nested Effect.gen({ self: this }).
 func TestIssue173_Generic3ArgCallInsideNestedEffectGen(t *testing.T) {
 	t.Parallel()
